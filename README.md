@@ -1,14 +1,14 @@
 # Craquage de Mots de Passe avec les Tables Arc-en-ciel
 
 ## Auteurs
-- Wanis CHOUAIB
-  wanis.chouaib@ens.uvsq.fr
-- Mathis ALLOUCHE
-  mathis.allouche@ens.uvsq.fr
-- Antoine RIOS CAMPO
-  antoine.rios-campo@ens.uvsq.fr
-- Basile LAURIOLA
-  basile.lauriola@ens.uvsq.fr
+- Wanis CHOUAIB  
+	wanis.chouaib@ens.uvsq.fr
+- Mathis ALLOUCHE  
+	mathis.allouche@ens.uvsq.fr
+- Antoine RIOS CAMPO  
+	antoine.rios-campo@ens.uvsq.fr
+- Basile LAURIOLA  
+	basile.lauriola@ens.uvsq.fr
 
 ## Introduction (avec un peu d'histoire)
 Ce projet résultera à une implémentation du craquage de mots de passe en utilisant les tables arc-en-ciel.  
@@ -27,8 +27,8 @@ make run
 ```
 
 ## Responsable
-- Christina BOURA
-  christina.boura@uvsq.fr
+- Christina BOURA  
+	christina.boura@uvsq.fr
 
 ## Version
 
