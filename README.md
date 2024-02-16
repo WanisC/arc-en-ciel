@@ -22,8 +22,18 @@ L'objectif, ici, est de démontrer comment les tables arc-en-ciel sont utilisée
 L'utilisateur aura à sa disposition un fichier Makefile permettant de simplifier l'exécution manuelle des commandes.  
 Veuillez vous référer à ce fichier afin de vous familiariser avec les différentes *targets*.
 ```bash
+# Compile le fichier main.c et exécute le fichier compilé
 make
 make run
+# Compile le fichier main.c sans exécuter le fichier compilé
+make main
+# Compile le fichier main.c avec des switchs permettant l'ajout de diverses informations sur le fichier compilé et permet de vérifier les fuites de mémoire (memory leaks)
+make valgrind
+# Compile le fichier main.c avec des switchs permettant l'ajout de diverses informations sur le fichier compilé et permet le lancement du débuggeur
+make gdb
+# Installation des outils
+make intall_gdb
+make install_valgrind
 ```
 
 ## Responsable
