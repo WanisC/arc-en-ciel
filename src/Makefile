@@ -11,11 +11,11 @@ hashage.o:
 	gcc -c -Wall hashage.c
 
 valgrind:
-	gcc -g -ggdb3 main.c -o valgrind_check
+	gcc -g -ggdb3 hashage.c reduction.c main.c -o valgrind_check -lsodium
 	valgrind --leak-check=full ./valgrind_check
 
 gdb:
-	gcc -g -ggdb3 main.c -o gdb_check
+	gcc -g -ggdb3 hashage.c reduction.c main.c -o gdb_check -lsodium
 	gdb ./gdb_check
 
 update:
