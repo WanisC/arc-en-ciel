@@ -1,13 +1,13 @@
 # Craquage de Mots de Passe avec les Tables Arc-en-ciel
 
 ## Auteurs
-- Wanis CHOUAIB  
+* Wanis CHOUAIB  
 	wanis.chouaib@ens.uvsq.fr
-- Mathis ALLOUCHE  
+* Mathis ALLOUCHE  
 	mathis.allouche@ens.uvsq.fr
-- Antoine RIOS CAMPO  
+* Antoine RIOS CAMPO  
 	antoine.rios-campo@ens.uvsq.fr
-- Basile LAURIOLA  
+* Basile LAURIOLA  
 	basile.lauriola@ens.uvsq.fr
 
 ## Introduction (avec un peu d'histoire)
@@ -27,9 +27,9 @@ make
 make run
 # Compile le fichier main.c sans exécuter le fichier compilé
 make main
-# Compile le fichier main.c avec des switchs permettant l'ajout de diverses informations sur le fichier compilé et permet de vérifier les fuites de mémoire (memory leaks)
+# Compile le fichier main.c avec des switchs générant des informations de débogage et permet de vérifier les fuites de mémoire (memory leaks)
 make valgrind
-# Compile le fichier main.c avec des switchs permettant l'ajout de diverses informations sur le fichier compilé et permet le lancement du débuggeur
+# Compile le fichier main.c avec des switchs générant des informations de débogage et permet le lancement du débuggeur
 make gdb
 # Installation des outils
 make intall_gdb
@@ -37,7 +37,7 @@ make install_valgrind
 ```
 
 ## Responsable
-- Christina BOURA  
+* Christina BOURA  
 	christina.boura@uvsq.fr
 
 ## Version
