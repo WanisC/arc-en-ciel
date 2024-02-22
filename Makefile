@@ -1,0 +1,4 @@
+run:
+	del main.exe
+	gcc -g -o main.exe src/main.c src/hashage.c src/reduction.c lib/cmathematics/cmathematics.c lib/cmathematics/data/encryption/aes.c lib/cmathematics/data/hashing/hmac.c lib/cmathematics/data/hashing/pbkdf.c lib/cmathematics/data/hashing/sha.c lib/cmathematics/data/hashing/sha1.c lib/cmathematics/data/hashing/sha2.c lib/cmathematics/data/hashing/sha3.c lib/cmathematics/graph/graph.c lib/cmathematics/lib/arrays.c lib/cmathematics/lib/avl.c lib/cmathematics/lib/dynamicarray.c lib/cmathematics/lib/functions.c lib/cmathematics/lib/minheap.c lib/cmathematics/lib/strstream.c lib/cmathematics/linalg/matrix.c lib/cmathematics/linalg/vec.c lib/cmathematics/util/bigint.c lib/cmathematics/util/exp_util.c lib/cmathematics/util/expressions.c lib/cmathematics/util/numio.c
+	./main.exe

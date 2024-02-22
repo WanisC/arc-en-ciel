@@ -1,0 +1,1 @@
+unsigned char* reduction(unsigned char* hash, int offset);
