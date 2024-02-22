@@ -64,7 +64,7 @@ int main(void) {
 		// Appel de la fonction de réduction
 		char reduit[7] = "";
 		printf("[*] Application de la fonction de réduction (en cours...)\n");
-		reduction(hash, reduit);
+		R2(hash, reduit);
 		printf("\t-> %s\n", reduit);
 		// Vérification si le mot de passe est dans notre table arc-en-ciel
 		if (recherche(reduit, rainbow_table)) {
