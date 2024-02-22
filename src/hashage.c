@@ -12,10 +12,11 @@ void init_sha3(void **ctx) {
 
 void sha3_256(void *ctx, unsigned char *input, unsigned char **out) {
     // TODO : check ctx
-    ctx = malloc(sizeof(sha3_context));
-    init_sha3(&ctx);
-    sha3_update(ctx, input, 7);
-    sha3_digest(ctx, out);
+    void *ctx_tmp = malloc(sizeof(sha3_context));
+    init_sha3(&ctx_tmp);
+    sha3_update(ctx_tmp, input, 7);
+    sha3_digest(ctx_tmp, out);
+    free(ctx_tmp);
 }
 
 void printHash(unsigned char *hash) {
