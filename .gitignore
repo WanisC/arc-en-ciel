@@ -1,1 +1,3 @@
-rsc/rockyou_7_hashed.txt
+rsc/*
+.gitignore
+*.json
