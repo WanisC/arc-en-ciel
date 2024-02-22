@@ -1,1 +1,2 @@
-unsigned char* reduction(unsigned char* hash, int offset);
+reduction(unsigned char* hash, unsigned char* password);
+unsigned char* hash_to_bin(unsigned char* hash);

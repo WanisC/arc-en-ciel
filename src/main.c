@@ -5,54 +5,51 @@
 #include <stdio.h>
 
 int main(void) {
-    // FILE *fptr;
-    // fptr = fopen("rsc/rockyou_7.txt", "r");
-    // if (fptr == NULL) {
-    //     printf("Error!");
-    //     exit(1);
-    // }
+    // Open file for writing reduced passwords
+    
+    FILE *fptr;
+    fptr = fopen("rsc/test.txt", "w");
+    if (fptr == NULL) {
+        printf("Error!");
+        exit(1);
+    }
+    void *ctx = NULL;
+    init_sha3(&ctx); // Initialize sha3 context (6 = sha3-256)
 
-    // FILE *fptr2;
-    // fptr2 = fopen("rsc/rockyou_7_hashed.txt", "w");
-    // if (fptr2 == NULL) {
-    //     printf("Error!");
-    //     exit(1);
-    // }
+    unsigned char password[8] = "0000000";
+    for (int i = 0; i < 100; i++) {
+        generate(ctx, password, fptr);
+        int j = 6;
+        while (1) {
+            if (password[j] == '9') {
+                password[j] = 'a';
+                j--;
+            } else if (password[j] == 'z') {
+                password[j] = 'A';
+            } else {
+                password[j]++;
+                break;
+            }
+        }
+    }
 
-    // unsigned char *line = malloc(9 * sizeof(unsigned char));
-    // while (1) {
-    //     if (fgets(line, 9, fptr) == NULL) {
-    //         break;
-    //     }
-    //     line[7] = '\0';
+    free(ctx);
+    fclose(fptr);
 
-    //     generate(line, fptr2);
-    // }
-    // fclose(fptr);
-    // fclose(fptr2);
-
-    test();
     return 0;
 }
 
-unsigned char* H_R(unsigned char *password, int offset) {
-    unsigned char *hash = NULL;
-    hash = sha3_256(password, hash);
-    unsigned char *result = reduction(hash, offset);
-    free(hash);
-    return result;
-}
+void generate(void *ctx, unsigned char *password, FILE *fptr) {
+    unsigned char out[8] = "";
+    unsigned char *hash;
 
-void generate(unsigned char *password, FILE *fptr) {
-    char * first_password = malloc(9 * sizeof(char));
-    strcpy(first_password, password);
+    fprintf(fptr, "%s\n", password);
 
-    for (int i = 0; i < 99; i++) {
-        password = H_R(password, i);
+    for (int i = 0; i < 10; i++) {
+        sha3_256(ctx, password, &hash);
+        reduction(hash, out);
+        password = out;
+        fprintf(fptr, "%s\n", password);
     }
-    unsigned char *hash = NULL;
-    hash = sha3_256(password, hash);
-    char* hash_str = hash_to_string(hash);
-
-    fprintf(fptr, "%s-%s\n", first_password, hash_str);
+    fprintf(fptr, "\n");
 }
