@@ -95,7 +95,7 @@ fn main() {
                 let hash = hasher.finalize_reset().to_vec();
                 password_tmp = password_tmp + &reduction::reduction(&hash, offset);
             }
-            let buf = format!("{}\n", password_tmp);
+            let buf = format!("{}", password_tmp);
             file.write_all(buf.as_bytes()).unwrap();
             password = password + 100;
         }
