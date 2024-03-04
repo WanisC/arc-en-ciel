@@ -83,7 +83,7 @@ fn main() {
     // let mut hasher = Sha3_256::new();
     (0..8).into_par_iter().for_each(|i| {
         // Open a file
-        let path = format!("./output/{}.txt", i);
+        let path = format!("./output/test_{}.txt", i);
         let mut file = std::fs::File::create(path).unwrap(); 
 
         let mut hasher = Sha3_256::new();
@@ -93,9 +93,9 @@ fn main() {
             for offset in 0..100 {
                 hasher.update(password_tmp.clone());
                 let hash = hasher.finalize_reset().to_vec();
-                password_tmp = reduction::reduction(&hash, offset);
+                password_tmp = password_tmp + &reduction::reduction(&hash, offset);
             }
-            let buf = format!("{}-{}\n", password.password, password_tmp);
+            let buf = format!("{}\n", password_tmp);
             file.write_all(buf.as_bytes()).unwrap();
             password = password + 100;
         }
