@@ -1,1 +1,0 @@
-void reduction(unsigned char* hash, unsigned char* password);
