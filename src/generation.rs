@@ -6,6 +6,7 @@ use std::mem;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
+use std::path::PathBuf;
 
 use crate::password::Password;
 use crate::reduction::reduction;
@@ -37,7 +38,10 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
     let mut passwords: Vec<Password> = Vec::new();
     // check if memory file exists
     if use_mem && std::path::Path::new(&(path.clone() + "mem.txt")).exists() {
-        let mut file = std::fs::File::open(path.clone() + "mem.txt").unwrap();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open(path.clone() + "mem.txt")
+            .unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         let mut passwords_str = contents.split("\n").collect::<Vec<&str>>();
@@ -49,6 +53,9 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
             passwords.push(Password { password: "0000000".to_string() } + slice * i);
         }
     }
+
+    // Create the memory file
+    std::fs::create_dir_all(PathBuf::from(path.clone()).to_str().unwrap()).unwrap();
 
     let mem_file = Mutex::new(
         OpenOptions::new()
