@@ -1,16 +1,14 @@
 mod password;
 mod reduction;
-use reduction::reduction;
+mod hash;
 mod sha3;
-use sha3::hash_password;
 mod generation;
 use generation::generation_main;
 mod search;
 use search::search_main;
 
 use clap::{Parser, Subcommand};
-use core::hash;
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 
 #[derive(Parser)]
@@ -54,7 +52,7 @@ enum Commands {
     Search {
         #[clap(default_value = "./output/")]
         // Path for the input folder, default is ./output/
-        path: Option<PathBuf>,
+        path: PathBuf,
 
         #[clap(long, short = 'm', default_value = "true")]
         /// Use memory file
@@ -84,8 +82,6 @@ fn main() {
             generation_main(path, use_mem, chain_length);
         },
         Commands::Search { path, use_mem, chain_length, hash, hashs_path} => {
-            let hash = hash.map(|h| h.as_bytes().to_vec());
-            println!("{:?}", hash);
             search_main(path, use_mem, chain_length, hash, hashs_path);
         },
     }

@@ -6,84 +6,46 @@ use std::collections::HashMap;
 use std::fs::OpenOptions;
 use crate::reduction::reduction;
 use crate::sha3::hash_password;
+use crate::hash::Hash;
 
-pub fn search_main(path: Option<PathBuf>, use_mem: bool, chain_length: u16, hash: Option<Vec<u8>>, hashs_path: Option<PathBuf>) {
-    let mut passwords_to_search = Vec::new();
+pub fn search_main(path: PathBuf, use_mem: bool, chain_length: u16, hash: Option<String>, hashs_path: Option<PathBuf>) {
+    let hashs = get_hashs(hash, hashs_path);
+    let passwords_to_search = Arc::new(generation_reduction(&hashs, chain_length));
+    let chains_info = search_chains(path, passwords_to_search, chain_length);
+    search_output(chains_info);
+}
+
+fn get_hashs(hash: Option<String>, hashs_path: Option<PathBuf>) -> Vec<Hash> {
     let mut hashs = Vec::new();
     if let Some(hash) = hash {
-        hashs.push(hash);
-        passwords_to_search = generation_reduction(hashs, chain_length);
-
-    } else if let Some(hashs_path) = hashs_path {
+        hashs.push(Hash::from(hash));
+    }
+    else if let Some(hashs_path) = hashs_path {
+        // Open the file in read-only mode
         let mut file = OpenOptions::new()
             .read(true)
             .open(hashs_path.clone())
             .unwrap();
 
+        // Read the file contents into a string
         let mut buf = String::new();
         file.read_to_string(&mut buf).unwrap();
-
-        let hashs = Mutex::new(Vec::new());
-        let hashs_tmp = buf.split("\n").collect::<Vec<&str>>();
-        hashs_tmp.into_par_iter().for_each(|hash: &str| {
-            let mut hash_str = hash.to_string();
-            let mut hash = Vec::new();
-            for _ in 0..32 {
-                let byte = u8::from_str_radix(&hash_str[0..2], 16).unwrap();
-                hash.push(byte);
-                hash_str = hash_str[2..].to_string();
-            }
-            hashs.lock().unwrap().push(hash);
-        });
         
-        let hashs = hashs.into_inner().unwrap();
-        passwords_to_search = generation_reduction(hashs, chain_length);
+        // TODO Gestion erreur: chaine detecter comme pas un hash de 64 caractères
+        hashs = buf.split("\n").collect::<Vec<&str>>().iter().map(|hash| {
+            Hash::from(hash.to_string())
+        }).collect::<Vec<Hash>>();
     }
-
-    let passwords_to_search = Arc::new(passwords_to_search);
-    let thread = num_cpus::get() as u64;
-    (0..thread).into_par_iter().for_each(|i| {
-        let path = path.clone().unwrap().to_str().unwrap().to_string();
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(path.clone() + format!("test_{}.txt", i).as_str())
-            .unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        let mut passwords = contents.split("\n").collect::<Vec<&str>>();
-        passwords.pop();
-        let passwords: HashMap<String, String> = passwords.into_par_iter().map(|p| (p[7..].to_string(), p[0..7].to_string())).collect();
-        let found_passwords = Mutex::new(Vec::new());
-
-        passwords_to_search.par_iter().for_each(|password| {
-            if passwords.contains_key(password) {
-                println!("Password found {}", password);
-                found_passwords.lock().unwrap().push(password.clone());
-            }
-        });
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(path + format!("found_passwords_{}.txt", i).as_str())
-            .unwrap();
-
-        let found_passwords = found_passwords.into_inner().unwrap();
-        for password in found_passwords {
-            file.write_all(password.as_bytes()).unwrap();
-            file.write_all("\n".as_bytes()).unwrap();
-        }
-    });
+    hashs
 }
 
+fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16) -> Vec<String> {
+    let reduced_passwords = Mutex::new(vec![vec![]; hashs.len()]);
 
-fn generation_reduction(hashs: Vec<Vec<u8>>, chain_length: u16) -> Vec<String> {
-    let reduced_passwords = Mutex::new(Vec::new());
-
-    hashs.into_par_iter().for_each(|hash| {
+    hashs.into_par_iter().enumerate().for_each(|(i, hash)| {
         let mut reducted_passwords_local = Vec::new();
         for length in 1..=chain_length {
-            let mut hash_to_red = hash.clone();
+            let mut hash_to_red = hash.hash.clone();
             let mut password = String::new();
             for offset in (1..=length).rev() {
                 password = reduction(&hash_to_red, chain_length - offset);
@@ -91,16 +53,52 @@ fn generation_reduction(hashs: Vec<Vec<u8>>, chain_length: u16) -> Vec<String> {
             }
             reducted_passwords_local.push(password.clone());
         }
-        reduced_passwords.lock().unwrap().append(&mut reducted_passwords_local);
+        reduced_passwords.lock().unwrap()[i] = reducted_passwords_local;
     });
 
-    reduced_passwords.into_inner().unwrap()
+    reduced_passwords.into_inner().unwrap().concat()
 }
 
-/// Search for the password in the given file
-// fn search(file: PathBuf, passwords_to_search: Arc<Vec<String>>, hashs: Arc<Vec<String>>) -> Option<Vec<String>> {
 
-// }
+fn search_chains(path: PathBuf, passwords_to_search: Arc<Vec<String>>, chain_length: u16) -> Vec<(String, u32, u32)> {
+    let chain_length = chain_length as u32;
+    let thread = num_cpus::get() as u64;
+    
+    let chains_info = Mutex::new(Vec::new());
+    (0..thread).into_par_iter().for_each(|i| {
+        let path = path.clone().to_str().unwrap().to_string();
+        let mut file = OpenOptions::new()
+        .read(true)
+        .open(path.clone() + format!("test_{}.txt", i).as_str())
+        .unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        let mut passwords = contents.split("\n").collect::<Vec<&str>>();
+        passwords.pop();
+        let passwords: HashMap<String, String> = passwords.into_par_iter().map(|p| (p[7..].to_string(), p[0..7].to_string())).collect();
+        
+        let chains_info_local = Mutex::new(Vec::new());
+        passwords_to_search.par_iter().enumerate().for_each(|(i, password)| {
+            if passwords.contains_key(password) {
+                println!("Chains found {}", password);
+                chains_info_local.lock().unwrap().push((password.clone(), i as u32 / chain_length, 99 - i as u32 % chain_length));
+            }
+        });
+        chains_info.lock().unwrap().append(&mut chains_info_local.into_inner().unwrap());
+    });
+    chains_info.into_inner().unwrap()
+}
+
+fn search_output(chains_info: Vec<(String, u32, u32)>) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open("output.txt")
+        .unwrap();
+    for chain in chains_info {
+        file.write_all(format!("{} {} {}\n", chain.0, chain.1, chain.2).as_bytes()).unwrap();
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -109,15 +107,15 @@ mod tests {
     #[test]
     fn test_generation_reduction() {
         let hashs = vec![
-            vec![89, 231, 227, 91, 71, 2, 64, 70, 87, 23, 109, 83, 47, 144, 137, 54, 192, 188, 198, 117, 203, 37, 149, 4, 169, 207, 252, 240, 4, 143, 166, 27]
+            Hash::from("59e7e35b4702404657176d532f908936c0bcc675cb259504a9cffcf0048fa61b".to_string()),
         ];
         let chain_length = 100;
-        println!("{:#?}", generation_reduction(hashs, chain_length));
+        println!("{:#?}", generation_reduction(&hashs, chain_length));
     }
 
     #[test]
     fn test_search_main() {
-        let path = Some(PathBuf::from("./output/"));
+        let path = PathBuf::from("./output/");
         let use_mem = true;
         let chain_length = 100;
         let hash = None;
