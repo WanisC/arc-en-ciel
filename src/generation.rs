@@ -1,5 +1,4 @@
 
-use sha3::{Digest, Sha3_256};
 use rayon::prelude::*;
 use std::fs::OpenOptions;
 use std::io::{Write, Read};
@@ -10,6 +9,7 @@ use std::sync::Mutex;
 
 use crate::password::Password;
 use crate::reduction::reduction;
+use crate::sha3::hash_password;
 
 
 const CHAIN_LENGTH_MIN : u16 = 1;
@@ -77,9 +77,6 @@ fn generation(stop_me: &Arc<AtomicBool>, slice: u64, i: u64, start: Password, ch
         .open(path + format!("test_{}.txt", i).as_str())
         .unwrap();
 
-    // Contruct a hasher
-    let mut hasher = Sha3_256::new();
-
     // Create the first and last password
     let mut password = start;
     let last_password = Password { password: "0000000".to_string() } + (slice * (i + 1) - 1);
@@ -90,8 +87,7 @@ fn generation(stop_me: &Arc<AtomicBool>, slice: u64, i: u64, start: Password, ch
 
         // Generate the chain
         for offset in 0..chain_length {
-            hasher.update(password_tmp.clone());
-            let hash = hasher.finalize_reset().to_vec();
+            let hash = hash_password(&password_tmp);
             password_tmp = reduction(&hash, offset);
         }
 
