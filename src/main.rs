@@ -1,4 +1,5 @@
 mod hashage;
+mod keccak;
 
 use clap::{Parser, Subcommand};
 
@@ -45,7 +46,7 @@ fn main() {
             let test = Sha3::new(password, *block, *fingerprint);
             println!("Password: {}", test.password);
             println!("Fingerprint: {}", test.fingerprint);
-            println!("Rate of biits: {}", test.r);
+            println!("Rate of bits: {}", test.r);
             println!("Extra bloc size: {}", test.c);
             println!("Block size: {:?}", test.b); /* je dois faire attention à ce que la taille du bloc est la bonne pour le fingerprint donné */ 
             println!("Mode: {:?}", mode); 
