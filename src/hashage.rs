@@ -7,16 +7,16 @@ use crate::keccak::Keccak;
 #[derive(Debug)]
 pub struct Sha3 {
     pub password: String,
-    l: usize,               // will be 6 for Keccak (à supprimer ?)
-    pub b: i32,             // block size (b = r + c)
-    pub c: i32,             // extra block size for more security/operations (SHA-3 norm: c = 2*fingerprint) 
-    pub r: i32,             // rate of bits absorbed by the sponge (r = b - c)
-    pub fingerprint: i32,   // size of the fingerprint
+    pub password_bin: String,   // password in binary
+    pub b: i32,                 // block size (b = r + c)
+    pub c: i32,                 // extra block size for more security/operations (SHA-3 norm: c = 2*fingerprint) 
+    pub r: i32,                 // rate of bits absorbed by the sponge (r = b - c)
+    pub fingerprint: i32,       // size of the fingerprint
 }
 
 impl Sha3 {
     /// Create a new SHA-3 instance
-    pub fn new(password: &str, block: Option<i32>, fingerprint: i32) -> Sha3 {
+    pub fn new(password: &str, fingerprint: i32) -> Sha3 {
 
         // Fingerprint values for each block size
         let mut fingerprint_values = HashMap::new();
@@ -26,13 +26,13 @@ impl Sha3 {
         fingerprint_values.insert(512, 576);
 
         // If the block size is provided, we use it
-        match block {
+        match fingerprint_values.get(&fingerprint) {
             Some(b) => Sha3 {
                 password: password.to_string(),
-                l: 6,
+                password_bin: String::new(),
                 b: b + 2*fingerprint,
                 c: 2*fingerprint,
-                r: b,
+                r: *b,
                 fingerprint,
             },
             // If not, we use the default block size for the fingerprint
@@ -40,10 +40,10 @@ impl Sha3 {
                 if let Some(&r) = fingerprint_values.get(&fingerprint) { // If we are able to recover the block size for the fingerprint
                     Sha3 {
                         password: password.to_string(),
-                        l: 6,
+                        password_bin: String::new(),
                         b: r + 2*fingerprint,
                         c: 2*fingerprint,
-                        r,
+                        r: r,
                         fingerprint,
                     }
                 } else { // If not, we panic
@@ -77,14 +77,15 @@ impl Sha3 {
 
     /// Hashing function using the SHA-3 algorithm
     #[allow(dead_code)]
-    pub fn sha_3(&self) {
+    pub fn sha_3(&mut self) {
         
         // Message pre-processing (conversion to binary -> adding padding if necessary -> return password in binary)
-        let password_bin = self.preprocessing();
+        self.password_bin = self.preprocessing();
 
         // Sponge call (from the Keccak module)
+        let keccak = Keccak::new(self);
+        keccak.sponge();
         
-
     }
 }
 
@@ -95,8 +96,7 @@ mod tests {
     #[test]
     // Test the creation of a new SHA-3 with 224 bits
     fn test_sha_3_new_224() {
-        let sha_3 = Sha3::new("password", None, 224);
-        assert_eq!(sha_3.l, 6);
+        let sha_3 = Sha3::new("password", 224);
         assert_eq!(sha_3.b, 1152 + 2*224);
         assert_eq!(sha_3.c, 2*224);
         assert_eq!(sha_3.r, 1152);
@@ -106,8 +106,7 @@ mod tests {
     #[test]
     // Test the creation of a new SHA-3 with 256 bits
     fn test_sha_3_new_256() {
-        let sha_3 = Sha3::new("password", None, 256);
-        assert_eq!(sha_3.l, 6);
+        let sha_3 = Sha3::new("password", 256);
         assert_eq!(sha_3.b, 1088 + 2*256);
         assert_eq!(sha_3.c, 2*256);
         assert_eq!(sha_3.r, 1088);
@@ -117,8 +116,7 @@ mod tests {
     #[test]
     // Test the creation of a new SHA-3 with 384 bits
     fn test_sha_3_new_384() {
-        let sha_3 = Sha3::new("password", None, 384);
-        assert_eq!(sha_3.l, 6);
+        let sha_3 = Sha3::new("password", 384);
         assert_eq!(sha_3.b, 832 + 2*384);
         assert_eq!(sha_3.c, 2*384);
         assert_eq!(sha_3.r, 832);
@@ -128,8 +126,7 @@ mod tests {
     #[test]
     // Test the creation of a new SHA-3 with 512 bits
     fn test_sha_3_new_512() {
-        let sha_3 = Sha3::new("password", None, 512);
-        assert_eq!(sha_3.l, 6);
+        let sha_3 = Sha3::new("password", 512);
         assert_eq!(sha_3.b, 576 + 2*512);
         assert_eq!(sha_3.c, 2*512);
         assert_eq!(sha_3.r, 576);
@@ -139,8 +136,7 @@ mod tests {
     // Test the creation of a new SHA-3 instance with a block size
     #[test]
     fn test_sha_3_new_with_block() {
-        let sha_3 = Sha3::new("password", Some(1088), 256);
-        assert_eq!(sha_3.l, 6);
+        let sha_3 = Sha3::new("password", 256);
         assert_eq!(sha_3.b, 1088 + 2*256);
         assert_eq!(sha_3.c, 2*256);
         assert_eq!(sha_3.r, 1088);
@@ -150,8 +146,7 @@ mod tests {
     // Test the creation of a new SHA-3 instance without a block size
     #[test]
     fn test_sha_3_new_without_block() {
-        let sha_3 = Sha3::new("password", None, 256);
-        assert_eq!(sha_3.l, 6);
+        let sha_3 = Sha3::new("password", 256);
         assert_eq!(sha_3.b, 1088 + 2*256);
         assert_eq!(sha_3.c, 2*256);
         assert_eq!(sha_3.r, 1088);
@@ -161,7 +156,7 @@ mod tests {
     // Test the pre-processing of the binary password (with padding)
     #[test]
     fn test_sha_3_prepocessing() {
-        let sha_3 = Sha3::new("password", None, 256);
+        let sha_3 = Sha3::new("password", 256);
         let password = String::from("password123");
         let mut password_bin = String::new();
         for c in password.chars() {
