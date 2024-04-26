@@ -44,7 +44,7 @@ fn main() {
             println!("Fingerprint: {}", test.fingerprint);
             println!("Rate of bits: {}", test.r);
             println!("Extra bloc size: {}", test.c);
-            println!("Block size: {:?}", test.b); /* je dois faire attention à ce que la taille du bloc est la bonne pour le fingerprint donné */ 
+            println!("Block size: {:?}", test.b);
             println!("Mode: {:?}", mode); 
 
             test.sha_3();

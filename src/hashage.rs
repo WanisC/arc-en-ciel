@@ -25,8 +25,8 @@ impl Sha3 {
         fingerprint_values.insert(384, 832);
         fingerprint_values.insert(512, 576);
 
-        // If the block size is provided, we use it
         match fingerprint_values.get(&fingerprint) {
+            // If a correct fingerprint is given, we use it
             Some(b) => Sha3 {
                 password: password.to_string(),
                 password_bin: String::new(),
@@ -35,19 +35,16 @@ impl Sha3 {
                 r: *b,
                 fingerprint,
             },
-            // If not, we use the default block size for the fingerprint
+            // If not, we use the default fingerprint size (256 bits)
             None => {
-                if let Some(&r) = fingerprint_values.get(&fingerprint) { // If we are able to recover the block size for the fingerprint
-                    Sha3 {
-                        password: password.to_string(),
-                        password_bin: String::new(),
-                        b: r + 2*fingerprint,
-                        c: 2*fingerprint,
-                        r: r,
-                        fingerprint,
-                    }
-                } else { // If not, we panic
-                    panic!("Invalid fingerprint size");
+                let b = fingerprint_values.get(&256).unwrap();
+                Sha3 {
+                    password: password.to_string(),
+                    password_bin: String::new(),
+                    b: *b + 2*fingerprint,
+                    c: 2*fingerprint,
+                    r: *b,
+                    fingerprint,
                 }
             }
         }
@@ -61,11 +58,19 @@ impl Sha3 {
         for c in self.password.chars() {
             password_bin.push_str(&format!("{:08b}", c as u8));
         }
+
+        // If the length of the password in bits is already a multiple of r, we don't need to add padding
+        if password_bin.len() % self.r as usize == 0 {
+            return password_bin;
+        }
+
         // Recover the original length of the binary password in bits
         let original_length_bits = password_bin.len() as i32;
+
         // Recover the padding length
         let padding_length = self.r - (original_length_bits % self.r);
         password_bin.push('1'); // Add the padding start bit "1"
+
         // Add the minimum number of "0" bits to make the length of the message a multiple of r
         for _ in 0..padding_length-2 { // -2 because we already added the "1" bit and we will also add the last "1" bit after the loop
             password_bin.push('0');
@@ -157,7 +162,7 @@ mod tests {
     #[test]
     fn test_sha_3_prepocessing() {
         let sha_3 = Sha3::new("password", 256);
-        let password = String::from("password123");
+        let password = String::from("password");
         let mut password_bin = String::new();
         for c in password.chars() {
             password_bin.push_str(&format!("{:08b}", c as u8));
@@ -166,10 +171,16 @@ mod tests {
         assert_eq!(result.len(), 1088);
     }
 
-    // Test the pre-processing of the binary password (without padding)
+    // Test the pre-processing of the binary password (without padding needed)
     #[test]
-    #[should_panic]
-    fn test_sha_3_prepocessing_no_padding() {
-        unimplemented!("Not implemented yet")
+    fn test_sha_3_prepocessing_no_padding_needed() {
+        let sha_3 = Sha3::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 256);
+        let password = String::from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let mut passord_bin = String::new();
+        for c in password.chars() {
+            passord_bin.push_str(&format!("{:08b}", c as u8));
+        }
+        let result = sha_3.preprocessing();
+        assert_eq!(result.len(), 1088);
     }
 }
