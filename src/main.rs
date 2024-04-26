@@ -47,6 +47,9 @@ enum Commands {
         /// The lower the chain length is, the more memory is used
         /// but the faster it is to retrieve a password
         chain_length: u16,
+
+        #[clap(long, short = 'l', default_value = "7")]
+        password_length: usize,
     },
 
     Search {
@@ -71,6 +74,9 @@ enum Commands {
     
         #[clap(long, short = 'p')]
         hashs_path: Option<PathBuf>,
+    
+        #[clap(long, short = 'l')]
+        password_length: usize,
     },
 }
 
@@ -78,11 +84,11 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Generation { path, use_mem, chain_length } => {
-            generation_main(path, use_mem, chain_length);
+        Commands::Generation { path, use_mem, chain_length, password_length } => {
+            generation_main(path, use_mem, chain_length, password_length);
         },
-        Commands::Search { path, use_mem, chain_length, hash, hashs_path} => {
-            search_main(path, use_mem, chain_length, hash, hashs_path);
+        Commands::Search { path, use_mem, chain_length, hash, hashs_path, password_length} => {
+            search_main(path, use_mem, chain_length, hash, hashs_path, password_length);
         },
     }
 }

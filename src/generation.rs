@@ -16,7 +16,7 @@ use crate::sha3::hash_password;
 const CHAIN_LENGTH_MIN : u16 = 1;
 const CHAIN_LENGTH_MAX : u16 = 2048;
 
-pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_length: u16) {
+pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_length: u16, password_length: usize) {
     let path = path.unwrap().to_str().unwrap().to_string();
     let thread = num_cpus::get() as u64;
 
@@ -32,12 +32,10 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
         stop_me_ctrlc.store(true, std::sync::atomic::Ordering::SeqCst);
     }).expect("Error setting Ctrl-C handler");
 
-    // number of passwords to generate per thread
-    let slice = 64_u64.pow(7) / thread;    
-
     let mut passwords: Vec<Password> = Vec::new();
     // check if memory file exists
     if use_mem && std::path::Path::new(&(path.clone() + "mem.txt")).exists() {
+        // Read the memory file and store the passwords in a vector
         let mut file = OpenOptions::new()
             .read(true)
             .open(path.clone() + "mem.txt")
@@ -49,8 +47,9 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
         passwords_str.par_sort();
         passwords = passwords_str.into_par_iter().map(|p| Password { password: p.to_string() }).collect();
     } else {
+        // Generate the first password for each thread
         for i in 0..thread {
-            passwords.push(Password { password: "0000000".to_string() } + slice * i);
+            passwords.push(Password { password: "0".repeat(password_length).to_string() } + i);
         }
     }
 
@@ -66,7 +65,7 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
     );
     
     (0..thread).into_par_iter().for_each(|i: u64| {
-        let password = generation(&stop_me, slice, i, passwords[i as usize].clone(), chain_length, path.clone());
+        let password = generation(&stop_me, i, passwords[i as usize].clone(), chain_length, path.clone(), password_length);
         mem_file.lock().unwrap().write_all(format!("{}\n", password.password).as_bytes()).unwrap();
     });
 
@@ -76,7 +75,7 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
     mem::drop(mem_file);
 }
 
-fn generation(stop_me: &Arc<AtomicBool>, slice: u64, i: u64, start: Password, chain_length: u16, path: String) -> Password {
+fn generation(stop_me: &Arc<AtomicBool>, i: u64, start: Password, chain_length: u16, path: String, password_length: usize ) -> Password {
     // Open a file in in append mode
     let mut file = OpenOptions::new()
         .create(true)
@@ -84,24 +83,22 @@ fn generation(stop_me: &Arc<AtomicBool>, slice: u64, i: u64, start: Password, ch
         .open(path + format!("test_{}.txt", i).as_str())
         .unwrap();
 
-    // Create the first and last password
+    // Create the first password
     let mut password = start;
-    let last_password = Password { password: "0000000".to_string() } + (slice * (i + 1) - 1);
-
-    // Generate the passwords while the stop_me flag is not set and the password is less than the last password
-    while !stop_me.load(std::sync::atomic::Ordering::Relaxed) && password < last_password {
+    let offset = (chain_length as f32 * 0.9) as u64 ;
+    // Generate the passwords while the stop_me flag is not set and the password is not "?"
+    while !stop_me.load(std::sync::atomic::Ordering::Relaxed) && password.password != "?" {
         let mut password_tmp = password.password.clone();
 
         // Generate the chain
         for offset in 0..chain_length {
             let hash = hash_password(&password_tmp);
-            password_tmp = reduction(&hash, offset);
+            password_tmp = reduction(&hash, offset, password_length);
         }
 
         // Write the first and last password to the file
-        let buf = format!("{}{}\n", password.password, password_tmp);
-        file.write_all(buf.as_bytes()).unwrap();
-        password = password + 100;
+        file.write_all(format!("{}{}\n", password.password, password_tmp).as_bytes()).unwrap();
+        password = password + offset;
     }
 
     // Close the file

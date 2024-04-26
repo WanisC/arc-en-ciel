@@ -13,7 +13,7 @@ impl Add<u64> for Password {
         let mut password = self.to_b64();
 
         let mut carry = offset;
-        for i in (0..7).rev() {
+        for i in (0..self.password.len()).rev() {
             let sum = password[i] + carry;
             password[i] = sum % 64;
             carry = sum / 64;
@@ -22,7 +22,12 @@ impl Add<u64> for Password {
             }
         }
 
-        Password::from_b64(password)
+        let new = Password::from_b64(password);
+        if new < self {
+            Password { password: "?".to_string() }
+        } else {
+            new
+        }
     }
 }
 
@@ -104,7 +109,15 @@ mod tests {
     fn test_add_with_carry() {
         let password = Password { password: "8000009".to_string() };
         let password = password + 2;
-        assert_eq!(password.password, "800000b");
+        println!("{:?}", password.password);
+        assert_eq!(password.password, "800000B");
+    }
+
+    #[test]
+    fn test_add_with_overflow() {
+        let password = Password { password: "******Z".to_string() };
+        let password = password + 100;
+        assert_eq!(password.password, "?");
     }
 
     #[test]
@@ -118,7 +131,7 @@ mod tests {
     fn test_sub_with_carry() {
         let password = Password { password: "80000a0".to_string() };
         let password = password - 64;
-        assert_eq!(password.password, "8000090");
+        assert_eq!(password.password, "80000Z0");
     }
 
     #[test]
