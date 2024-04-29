@@ -1,4 +1,4 @@
-use std::io::{Read, Seek};
+use std::io::Read;
 use std::os::windows::fs::FileExt;
 use std::path::PathBuf;
 use rayon::prelude::*;
@@ -85,7 +85,9 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
         .open(path.clone() + format!("test_{}.txt", t).as_str())
         .unwrap();
 
-        let mut buf = [0; 11 * 100000];
+        let c = (2 * password_length + 1) * 100000; 
+
+        let mut buf = vec![0; c];
         let mut offset = 0;
         while let Ok(_) = file.seek_read(&mut buf, offset) {
             let contents = String::from_utf8(buf.to_vec()).unwrap();
@@ -113,7 +115,7 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
                     }
                 }
             });
-            offset += 11 * 100000;
+            offset += 11 * 50000;
         }
 
 
