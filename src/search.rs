@@ -1,12 +1,14 @@
-use std::io::Read;
+use std::io::{Read, Seek};
+use std::os::windows::fs::FileExt;
 use std::path::PathBuf;
 use rayon::prelude::*;
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use crate::reduction::reduction;
 use crate::sha3::hash_password;
 use crate::hash::Hash;
+use std::time::Instant;
 
 pub fn search_main(path: PathBuf, _use_mem: bool, chain_length: u16, hash: Option<String>, hashs_path: Option<PathBuf>, password_length: usize) {
     println!("get hash");
@@ -14,10 +16,16 @@ pub fn search_main(path: PathBuf, _use_mem: bool, chain_length: u16, hash: Optio
     println!("generation reduction");
     let passwords_to_search = Arc::new(generation_reduction(&hashs, chain_length, password_length));
     println!("search chains");
-    let mut chains_info = search_chains(path, passwords_to_search, chain_length, &hashs, password_length);
-    chains_info.par_sort_unstable_by(|a, b| a.1.hash.cmp(&b.1.hash));
-    println!("search for password");
-    search_output2(chains_info, password_length, chain_length);
+    let start = Instant::now();
+    let hash_founded = search_chains(path, passwords_to_search, password_length);
+    println!("Time elapsed: {:?}", start.elapsed());
+
+    // print hash not found
+    for hash in hashs.iter() {
+        if !hash_founded.contains(hash) {
+            println!("hash not found: {:?}", hash);
+        }
+    }
 }
 
 fn get_hashs(hash: Option<String>, hashs_path: Option<PathBuf>) -> Vec<Hash> {
@@ -44,108 +52,85 @@ fn get_hashs(hash: Option<String>, hashs_path: Option<PathBuf>) -> Vec<Hash> {
     hashs
 }
 
-fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16, password_length: usize) -> Vec<String> {
-    let reduced_passwords = Mutex::new(vec![vec![]; hashs.len()]);
+fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16, password_length: usize) -> HashMap<Hash, Vec<(String, u16)>> {
+    let reduced_passwords: Mutex<HashMap<Hash, Vec<(String, u16)>>> = Mutex::new(HashMap::new());
 
-    hashs.into_par_iter().enumerate().for_each(|(i, hash)| {
+    hashs.par_iter().for_each(|hash| {
         let mut reducted_passwords_local = Vec::new();
         for length in 1..=chain_length {
-            let mut hash_to_red = hash.hash.clone();
-            let mut password = String::new();
-            for offset in (1..=length).rev() {
+            let mut hash_to_red: Vec<u8> = hash.hash.clone();
+            let mut password: String;
+            for offset in (2..=length).rev() {
                 password = reduction(&hash_to_red, chain_length - offset, password_length);
                 hash_to_red = hash_password(&password);
             }
-            reducted_passwords_local.push(password.clone());
+            password = reduction(&hash_to_red, chain_length - 1, password_length);
+            reducted_passwords_local.push((password.clone(), chain_length - length));
         }
-        reduced_passwords.lock().unwrap()[i] = reducted_passwords_local;
+        reduced_passwords.lock().unwrap().insert(hash.clone(), reducted_passwords_local);
     });
 
-    reduced_passwords.into_inner().unwrap().concat()
+    reduced_passwords.into_inner().unwrap()
 }
 
 
-fn search_chains(path: PathBuf, passwords_to_search: Arc<Vec<String>>, chain_length: u16, hashs: &Vec<Hash>, password_length: usize) -> Vec<(String, Hash, u32)> {
-    let chain_length = chain_length as u32;
+fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(String, u16)>>>, password_length: usize) -> Vec<Hash> {
     let thread = num_cpus::get() as u64;
     
-    let chains_info = Mutex::new(Vec::new());
-    (0..thread).into_par_iter().for_each(|i| {
+    let hash_founded: Mutex<Vec<Hash>> = Mutex::new(Vec::new());
+    (0..thread).into_par_iter().for_each(|t| {
         let path = path.clone().to_str().unwrap().to_string();
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
         .read(true)
-        .open(path.clone() + format!("test_{}.txt", i).as_str())
+        .open(path.clone() + format!("test_{}.txt", t).as_str())
         .unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        let mut passwords = contents.split("\n").collect::<Vec<&str>>();
-        passwords.pop();
-        let passwords: HashMap<String, String> = passwords.into_par_iter().map(|p| (p[password_length..].to_string(), p[0..password_length].to_string())).collect();
-        
-        let chains_info_local = Mutex::new(Vec::new());
-        passwords_to_search.par_iter().enumerate().for_each(|(i, password)| {
-            if passwords.contains_key(password) {
-                chains_info_local.lock().unwrap().push((passwords.get(password).unwrap().clone(), hashs[i / chain_length as usize].clone(), 99 - i as u32 % chain_length));
+
+        let mut buf = [0; 11 * 100000];
+        let mut offset = 0;
+        while let Ok(_) = file.seek_read(&mut buf, offset) {
+            let contents = String::from_utf8(buf.to_vec()).unwrap();
+            let mut passwords = contents.split("\n").collect::<Vec<&str>>();
+            passwords.pop();
+            let passwords: HashMap<String, String> = passwords.into_par_iter().map(|p| (p[password_length..].to_string(), p[0..password_length].to_string())).collect();
+            
+            if hash_founded.lock().unwrap().len() == passwords_to_search.len() {
+                break;
             }
-        });
-        chains_info.lock().unwrap().append(&mut chains_info_local.into_inner().unwrap());
+    
+            passwords_to_search.iter().for_each(|(hash, password_list)| {
+                for (password, offset) in password_list.iter().rev() {
+                    if hash_founded.lock().unwrap().contains(hash) {
+                        break;
+                    }
+                    if passwords.contains_key(password) { 
+                        if let Some(reduc) = test_reduction(passwords.get(password).unwrap().clone(), hash.clone(), *offset as u32, password_length) {
+                            if !hash_founded.lock().unwrap().contains(hash) {
+                                hash_founded.lock().unwrap().push(hash.clone());
+                                println!("hash found: {:?} password: {}", hash, reduc);
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
+            offset += 11 * 100000;
+        }
+
+
     });
-    chains_info.into_inner().unwrap()
+    hash_founded.into_inner().unwrap()
 }
 
-// fn search_output(chains_info: Vec<(String, Hash, u32)>, password_length: usize) {
-//     let matched_passwords: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
-//     chains_info.par_iter().for_each(|(password, hash, offset)| {
-//         let mut password = password.clone();
-//         for i in 0..*offset {
-//             let hash_str = hash_password(&password);
-//             password = reduction(&hash_str, i as u16, password_length);
-//         }
-//         if hash_password(&password) == hash.hash {
-//             matched_passwords.lock().unwrap().insert(hash.to_string(), password);
-//         }
-//     });
-//     let matched_passwords = matched_passwords.into_inner().unwrap();
-//     matched_passwords.iter().for_each(|(hash, password)| {
-//         println!("{}: {}", hash, password);
-//     });
-// }
-
-
-fn search_output2(chains_info: Vec<(String, Hash, u32)>, password_length: usize, chain_length: u16) {
-    // println!("{:?}", chains_info);
-    let chains_info_index = Mutex::new((0..chains_info.len()).collect::<HashSet<usize>>());
-    let chains_info = Mutex::new(chains_info);
-    let threads = num_cpus::get() as u64;
-
-    (0..threads).par_bridge().for_each(|t| {
-        let mut local_chains_info_index = chains_info_index.lock().unwrap().clone();
-        while local_chains_info_index.len() > 0 {
-            local_chains_info_index = local_chains_info_index.intersection(&chains_info_index.lock().unwrap()).map(|i| *i).collect::<HashSet<usize>>();
-            // println!("{}: {}/{}", t, local_chains_info_index.len(), chains_info.lock().unwrap().len());
-
-            let index = *local_chains_info_index.iter().next().unwrap();
-            let (password, hash, offset) = chains_info.lock().unwrap()[index].clone();
-            let mut password = password.clone();
-            for i in 0..offset {
-                let hash_str = hash_password(&password);
-                password = reduction(&hash_str, i as u16, password_length);
-            }
-            if hash_password(&password) == hash.hash {
-                println!("{}: {}", hash, password);
-                let copy_chains_info = chains_info.lock().unwrap().clone();
-                let indexes = copy_chains_info.iter().enumerate().filter(|(_, (_, h, _))| h == &hash).map(|(i, _)| i).collect::<Vec<usize>>();
-                
-                println!("{:?}", chains_info_index.lock().unwrap().len());
-                for i in indexes {
-                    chains_info_index.lock().unwrap().remove(&i);
-                }
-                println!("{:?}", chains_info_index.lock().unwrap().len());
-            } else {
-                local_chains_info_index.remove(&index);
-            }
-        }
-    });
+fn test_reduction(reduc: String, hash: Hash, offset: u32, password_length: usize) -> Option<String> {
+    let mut reduc = reduc.clone();
+    for i in 0..offset {
+        let hash_str = hash_password(&reduc);
+        reduc = reduction(&hash_str, i as u16, password_length);
+    }
+    if hash_password(&reduc) == hash.hash {
+        return Some(reduc);
+    }
+    None
 }
 
 #[cfg(test)]
