@@ -10,7 +10,7 @@ use crate::hashage::Sha3;
 /// 384 -> r = 832
 /// 512 -> r = 576
 #[derive(Debug)]
-#[allow(arithmetic_overflow)]
+#[allow(dead_code)]
 pub struct Keccak {
     password: String,
     state: Vec<Vec<u64>>,

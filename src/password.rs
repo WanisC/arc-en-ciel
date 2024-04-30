@@ -4,6 +4,7 @@ use std::ops::{Add, Sub};
 #[derive(Clone, Debug)]
 pub struct Password {
     pub password: String,
+    length: usize,
 }
 
 impl Add<u64> for Password {
@@ -13,7 +14,7 @@ impl Add<u64> for Password {
         let mut password = self.to_b64();
 
         let mut carry = offset;
-        for i in (0..self.password.len()).rev() {
+        for i in (0..self.length).rev() {
             let sum = password[i] + carry;
             password[i] = sum % 64;
             carry = sum / 64;
@@ -24,7 +25,7 @@ impl Add<u64> for Password {
 
         let new = Password::from_b64(password);
         if new < self {
-            Password { password: "?".to_string() }
+            Password::new("?".to_string())
         } else {
             new
         }
@@ -37,7 +38,7 @@ impl Sub<u64> for Password {
     fn sub(self, offset: u64) -> Password {
         let mut password = self.to_b64();
         let mut offset = offset as i128;
-        for i in (0..7).rev() {
+        for i in (0..self.length).rev() {
             let sum: i128 = password[i] as i128 - offset;
             if sum < 0 {
                 password[i] = ((64 - (sum.abs() & 63)) & 63) as u64;
@@ -90,7 +91,12 @@ impl Password {
                 _ => c,
             } as u8
         ).map(|c| c as char).collect::<String>();
-        Password { password }
+        Password::new(password)
+    }
+
+    pub fn new (password: String) -> Password {
+        let length = password.len();
+        Password { password, length }
     }
 }
 
@@ -100,14 +106,14 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let password = Password { password: "8000000".to_string() };
+        let password = Password::new("8000000".to_string());
         let password = password + 1;
         assert_eq!(password.password, "8000001");
     }
 
     #[test]
     fn test_add_with_carry() {
-        let password = Password { password: "8000009".to_string() };
+        let password = Password::new("8000009".to_string());
         let password = password + 2;
         println!("{:?}", password.password);
         assert_eq!(password.password, "800000B");
@@ -115,21 +121,21 @@ mod tests {
 
     #[test]
     fn test_add_with_overflow() {
-        let password = Password { password: "******Z".to_string() };
+        let password = Password::new("******Z".to_string());
         let password = password + 100;
         assert_eq!(password.password, "?");
     }
 
     #[test]
     fn test_sub() {
-        let password = Password { password: "8000001".to_string() };
+        let password = Password::new("8000001".to_string());
         let password = password - 1;
         assert_eq!(password.password, "8000000");
     }
 
     #[test]
     fn test_sub_with_carry() {
-        let password = Password { password: "80000a0".to_string() };
+        let password = Password::new("80000a0".to_string());
         let password = password - 64;
         assert_eq!(password.password, "80000Z0");
     }
@@ -137,7 +143,7 @@ mod tests {
     #[test]
     fn test_sub_complex() {
         for i in 0..1000 {
-            let password = Password { password: "800000!".to_string() };
+            let password = Password::new("800000!".to_string());
             let password = password + i;
             println!("{:?}", password.password);
             let password = password - i;
@@ -147,22 +153,22 @@ mod tests {
 
     #[test]
     fn test_eq() {
-        let password = Password { password: "8000000".to_string() };
-        let password2 = Password { password: "8000000".to_string() };
+        let password = Password::new("8000000".to_string());
+        let password2 = Password::new("8000000".to_string());
         assert_eq!(password == password2, true);
     }
 
     #[test]
     fn test_gt() {
-        let password = Password { password: "8020000".to_string() };
-        let password2 = Password { password: "800!000".to_string() };
+        let password = Password::new("8020000".to_string());
+        let password2 = Password::new("800!000".to_string());
         assert_eq!(password > password2, true);
     }
 
     #[test]
     fn test_lt() {
-        let password = Password { password: "802000z".to_string() };
-        let password2 = Password { password: "802000!".to_string() };
+        let password = Password::new("802000z".to_string());
+        let password2 = Password::new("802000!".to_string());
         assert_eq!(password < password2, true);
     }
 }

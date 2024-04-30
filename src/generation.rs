@@ -44,11 +44,11 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
         let mut passwords_str = contents.split("\n").collect::<Vec<&str>>();
         passwords_str.pop();
         passwords_str.par_sort();
-        passwords = passwords_str.into_par_iter().map(|p| Password { password: p.to_string() }).collect();
+        passwords = passwords_str.into_par_iter().map(|p| Password::new(p.to_string())).collect();
     } else {
         // Generate the first password for each thread
         for i in 0..thread {
-            passwords.push(Password { password: "0".repeat(password_length).to_string() } + i);
+            passwords.push(Password::new("0".repeat(password_length).to_string()) + i);
         }
     }
 
