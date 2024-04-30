@@ -1,3 +1,5 @@
+//! Implementation of the different search functions used to retrieve the password from the hash
+
 use std::io::Read;
 use std::os::windows::fs::FileExt;
 use std::path::PathBuf;
@@ -11,29 +13,45 @@ use crate::hash::Hash;
 use crate::sha3::hash_password;
 use std::time::Instant;
 
+/// Search the password from the hash.
+/// # Arguments
+/// * `path` - The path to the file containing the passwords
+/// * `chain_length` - The length of the chain
+/// * `hash` - The hash to search
+/// * `hashs_path` - The path to the file containing the hashs
+/// * `password_length` - The length of the password
 pub fn search_main(path: PathBuf, chain_length: u16, hash: Option<String>, hashs_path: Option<PathBuf>, password_length: usize) {
-    println!("get hash");
+    println!("Get hash");
     let hashs = get_hashs(hash, hashs_path);
-    println!("generation reduction");
+    println!("Generation reduction");
     let passwords_to_search: Arc<HashMap<Hash, Vec<(String, u16)>>> = Arc::new(generation_reduction(&hashs, chain_length, password_length));
-    println!("search chains");
+    println!("Search chains");
     let start = Instant::now();
     let hash_founded = search_chains(path, passwords_to_search, password_length);
     println!("Time elapsed: {:?}", start.elapsed());
 
-    // print hash not found
+    // For each hash, check if it has been found
     for hash in hashs.iter() {
+        // If the hash has not been found, print an message to the user
         if !hash_founded.contains(hash) {
-            println!("hash not found: {:?}", hash);
+            println!("Hash not found: {:?}", hash);
         }
     }
 }
 
+/// Get the hashs from the hash or the hashs file.
+/// # Arguments
+/// * `hash` - The hash to search
+/// * `hashs_path` - The path to the file containing the hashs
+/// # Returns
+/// A vector containing the hashs.
 fn get_hashs(hash: Option<String>, hashs_path: Option<PathBuf>) -> Vec<Hash> {
-    let mut hashs = Vec::new();
+    let mut hashs = Vec::new(); // Vector containing the hashs
+    // If the hash is not None, add it to the vector
     if let Some(hash) = hash {
         hashs.push(Hash::from(hash));
     }
+    // If the hashs_path is not None, add the hashs from the file to the vector
     else if let Some(hashs_path) = hashs_path {
         // Open the file in read-only mode
         let mut file = OpenOptions::new()
@@ -45,7 +63,6 @@ fn get_hashs(hash: Option<String>, hashs_path: Option<PathBuf>) -> Vec<Hash> {
         let mut buf = String::new();
         file.read_to_string(&mut buf).unwrap();
         
-        // TODO Gestion erreur: chaine detecter comme pas un hash de 64 caractères
         hashs = buf.split("\n").collect::<Vec<&str>>().iter().map(|hash| {
             Hash::from(hash.to_string())
         }).collect::<Vec<Hash>>();
@@ -53,11 +70,21 @@ fn get_hashs(hash: Option<String>, hashs_path: Option<PathBuf>) -> Vec<Hash> {
     hashs
 }
 
+/// Generate the reduced passwords from the hashs.
+/// # Arguments
+/// * `hashs` - The hashs to generate the reduced passwords
+/// * `chain_length` - The length of the chain
+/// * `password_length` - The length of the password
+/// # Returns
+/// A hashmap containing the hashs and the reduced passwords.
 fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16, password_length: usize) -> HashMap<Hash, Vec<(String, u16)>> {
+    // Initialize a hashmap containing the hashs and the reduced passwords
     let reduced_passwords: Mutex<HashMap<Hash, Vec<(String, u16)>>> = Mutex::new(HashMap::new());
 
+    // For each hash, generate the reduced passwords
     hashs.par_iter().for_each(|hash| {
         let mut reducted_passwords_local = Vec::new();
+        // 1 <= length <= chain_length
         for length in 1..=chain_length {
             let mut hash_to_red: Vec<u8> = hash.hash.clone();
             let mut password: String;
@@ -65,20 +92,33 @@ fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16, password_length: u
                 password = reduction(&hash_to_red, chain_length - offset, password_length);
                 hash_to_red = hash_password(&password);
             }
+            // Generate the reduced password
             password = reduction(&hash_to_red, chain_length - 1, password_length);
+            // Add the reduced password to the hashmap
             reducted_passwords_local.push((password.clone(), chain_length - length));
         }
+        // Add the reduced passwords to the hashmap
         reduced_passwords.lock().unwrap().insert(hash.clone(), reducted_passwords_local);
     });
 
     reduced_passwords.into_inner().unwrap()
 }
 
-
+/// Search the chains to retrieve the password from the hash.
+/// # Arguments
+/// * `path` - The path to the file containing the passwords
+/// * `passwords_to_search` - The passwords to search
+/// * `password_length` - The length of the password
+/// # Returns
+/// A vector containing the hashs found.
 fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(String, u16)>>>, password_length: usize) -> Vec<Hash> {
+    // Get the number of available CPUs of the current system   
     let thread = num_cpus::get() as u64;
     
+    // Initialize a vector containing the hashs found
     let hash_founded: Mutex<Vec<Hash>> = Mutex::new(Vec::new());
+
+    // For each thread, search the chains
     (0..thread).into_par_iter().for_each(|t| {
         let path = path.clone().to_str().unwrap().to_string();
         let file = OpenOptions::new()
@@ -90,6 +130,7 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
 
         let mut buf = vec![0; c];
         let mut offset = 0;
+        // Read the file and search the password
         while file.seek_read(&mut buf, offset).unwrap() != 0 {
             let contents = String::from_utf8(buf.to_vec()).unwrap();
             let mut passwords = contents.split("\n").collect::<Vec<&str>>();
@@ -100,6 +141,7 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
                 break;
             }
     
+            // For each hash, search the password
             passwords_to_search.iter().for_each(|(hash, password_list)| {
                 for (password, offset) in password_list.iter().rev() {
                     if hash_founded.lock().unwrap().contains(hash) {
@@ -124,12 +166,23 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
     hash_founded.into_inner().unwrap()
 }
 
+/// Test the reduction function.
+/// # Arguments
+/// * `reduc` - The password to reduce
+/// * `hash` - The hash to compare
+/// * `offset` - The offset to reduce
+/// * `password_length` - The length of the password
+/// # Returns
+/// The reduced password if the hash is found, None otherwise.
 fn test_reduction(reduc: String, hash: Hash, offset: u32, password_length: usize) -> Option<String> {
     let mut reduc = reduc.clone();
+    // 0 <= i < offset
     for i in 0..offset {
+        // Initialize a vector containing the hash of the reduced password
         let hash_str: Vec<u8> = sha3_hash(&reduc, Some(256)).hash;
         reduc = reduction(&hash_str, i as u16, password_length);
     }
+    // If the hash of the reduced password is equal to the hash, return the reduced password
     if sha3_hash(&reduc, Some(256)) == hash {
         return Some(reduc);
     }
