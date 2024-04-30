@@ -10,10 +10,9 @@ use crate::hashage::Sha3;
 /// 384 -> r = 832
 /// 512 -> r = 576
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct Keccak {
-    password: String,
-    state: Vec<Vec<u64>>,
+    password: String, // password
+    state: Vec<Vec<u64>>, // state array
     f: i32,     // fingerprint
     b: i32,     // block size (b = r + c)
     r: i32,     // bitrate
@@ -39,11 +38,11 @@ impl Keccak {
             r_iota: 1,
         }
     }
-
+    /// Rotate left function
     fn rol_64(a: u64, n: i32) -> u64 {
         (a >> (64 - (n % 64))) + (a << (n % 64)) 
     }
-    
+    /// Fill the string with zeros if the length is less than the width
     fn zfill(s: &str, width: usize) -> String {
         if width <= s.len() {
             return s.to_string();
@@ -74,15 +73,9 @@ impl Keccak {
 
         // 0 <= x < 5
         for x in 0..5 {
-            // 0 <= z < w
             c[x] = self.state[x][0] ^ self.state[x][1] ^ self.state[x][2] ^ self.state[x][3] ^ self.state[x][4];
         }
-
-        // TODO vérifier par rapport au document NIST si (x + 4) % 5 et (z + 63) % w sont corrects
-        // TODO changer peut-être les ranges des boucles
-        // 0 <= x < 5
         for x in 0..5 {
-            // 0 <= z < w
             d[x] = c[(x + 4).rem_euclid(5)] ^ Keccak::rol_64(c[(x + 1).rem_euclid(5)], 1);
         }
 
@@ -98,11 +91,8 @@ impl Keccak {
     fn routine_rho_pi(&mut self) {
         let (mut x, mut y) = (1, 0);
         let mut curent = self.state[x][y];
-        // TODO vérifier par rapport au document NIST si (z - (t + 1) * (t + 2) / 2) % w est correct
-        // TODO changer peut-être les ranges des boucles
         // 0 <= t <= 23
         for t in 0..=23 {
-            // 0 <= z < w
             (x, y) = (y, (2 * x + 3 * y).rem_euclid(5));
             (curent, self.state[x][y]) = (self.state[x][y], Keccak::rol_64(curent, ((t + 1) * (t + 2) / 2) as i32));
         }
@@ -112,7 +102,6 @@ impl Keccak {
     fn routine_chi(&mut self) {
         // 0 <= x < 5
         for y in 0..5 {
-            // 0 <= z < w
             let mut s = vec![0; 5];
             for x in 0..5 {
                 s[x] = self.state[x][y];
@@ -168,12 +157,21 @@ impl Keccak {
 #[cfg(test)]
 mod tests {
     use super::*;
-   
+
     #[test]
-    // Test of all the routines together we assume that n = 24
+    /// Test the `zfill` method
+    fn test_zfill() {
+        let num = "42";
+        let res = Keccak::zfill(num, 8);
+        assert_eq!(res, "00000042");
+    }
+    
+
+    #[test]
+    /// Test the creation of a new Keccak instance
     fn test_sha_3_keccak() {
         let mut sha3 = Sha3::new("****", 256);
-        sha3.password_bytes = sha3.preprocessing();
+        sha3.preprocessing();
         let mut keccak = Keccak::new(&sha3);
         keccak.sponge();
         let res = keccak.state_to_strings();

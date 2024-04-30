@@ -7,11 +7,11 @@ use crate::{hash::Hash, keccak::Keccak};
 #[derive(Debug)]
 pub struct Sha3 {
     pub password: String,
-    pub password_bytes: String,   // password in binary
+    pub password_bytes: String,   // password in bytes
     pub b: i32,                 // block size (b = r + c)
     pub c: i32,                 // extra block size for more security/operations (SHA-3 norm: c = 2*fingerprint) 
     pub r: i32,                 // rate of bits absorbed by the sponge (r = b - c)
-    pub fingerprint: i32,       // size of the fingerprint
+    pub fingerprint: i32,       // size of the fingerprint (224, 256, 384, 512)
 }
 
 impl Sha3 {
@@ -50,11 +50,14 @@ impl Sha3 {
         }
     }
 
-    /// Will check if the binary password need a padding
-    /// If so, it will add the padding to the binary password
-    pub fn preprocessing(&mut self) -> String { //TODO enlever le pub plus tard
+    /// Pre-processing function for the SHA-3 algorithm
+    /// It converts the password to bytes and adds padding
+    /// passwords are less than r bits long
+    /// so there is a padding of 0s until the length of the password is a multiple of r
+    pub fn preprocessing(&mut self) {
         // Conversion to bytes
         self.password_bytes = self.string_to_lsb(self.password.as_str());
+        // Adding the delimiter
         self.password_bytes.push_str("0000011");
         // Padding
         let mut padding = String::new();
@@ -62,11 +65,11 @@ impl Sha3 {
         for _ in 0..padding_len {
             padding.push('0');
         }
+        // Adding the last delimiter
         padding.push_str("10000000");
         self.password_bytes.push_str(&padding);
-        self.password_bytes.clone()
     }
-    
+    /// Convert a string to a string of bits (LSB)
     pub fn string_to_lsb(&self, s: &str) -> String {
         let mut result = String::new();
         for c in s.chars() {
@@ -75,10 +78,9 @@ impl Sha3 {
         result
     }
     /// Hashing function using the SHA-3 algorithm
-    #[allow(dead_code)]
     pub fn sha_3(&mut self) -> String {
         // Message pre-processing (conversion to binary -> adding padding if necessary -> return password in binary)
-        self.password_bytes = self.preprocessing();
+        self.preprocessing();
 
         // Sponge call (from the Keccak module)
         let mut keccak: Keccak = Keccak::new(self);
@@ -86,7 +88,7 @@ impl Sha3 {
         keccak.state_to_strings()
     }
 }
-
+/// Hash a password using the SHA-3 algorithm
 pub fn sha3_hash(password: &str, fingerprint: Option<i32>) -> Hash {
     let mut sha_3 = match fingerprint {
         Some(f) => Sha3::new(password, f),
