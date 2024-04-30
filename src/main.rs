@@ -4,6 +4,7 @@ mod hash;
 mod hashage;
 mod generation;
 mod keccak;
+mod sha3;
 use generation::generation_main;
 mod search;
 use search::search_main;

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use crate::password::Password;
 use crate::reduction::reduction;
-use crate::hashage::sha3_hash;
+use crate::sha3::hash_password;
 
 const CHAIN_LENGTH_MIN : u16 = 1;
 const CHAIN_LENGTH_MAX : u16 = 2048;
@@ -91,8 +91,8 @@ fn generation(stop_me: &Arc<AtomicBool>, i: u64, start: Password, chain_length: 
 
         // Generate the chain
         for offset in 0..chain_length {
-            let hash = sha3_hash(&password_tmp, Some(256));
-            password_tmp = reduction(&hash.hash, offset, password_length);
+            let hash = hash_password(&password_tmp);
+            password_tmp = reduction(&hash, offset, password_length);
         }
 
         // Write the first and last password to the file
