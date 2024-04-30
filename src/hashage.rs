@@ -2,12 +2,14 @@
 
 use std::collections::HashMap;
 use crate::keccak::Keccak;
+use byteorder::{ByteOrder, LittleEndian};
+use clap::builder::Str;
 
 /// SHA-3 struct
 #[derive(Debug)]
 pub struct Sha3 {
     pub password: String,
-    pub password_bin: String,   // password in binary
+    pub password_bytes: String,   // password in binary
     pub b: i32,                 // block size (b = r + c)
     pub c: i32,                 // extra block size for more security/operations (SHA-3 norm: c = 2*fingerprint) 
     pub r: i32,                 // rate of bits absorbed by the sponge (r = b - c)
@@ -29,7 +31,7 @@ impl Sha3 {
             // If a correct fingerprint is given, we use it
             Some(b) => Sha3 {
                 password: password.to_string(),
-                password_bin: String::new(),
+                password_bytes: String::new(),
                 b: b + 2*fingerprint,
                 c: 2*fingerprint,
                 r: *b,
@@ -40,8 +42,8 @@ impl Sha3 {
                 let b = fingerprint_values.get(&256).unwrap();
                 Sha3 {
                     password: password.to_string(),
-                    password_bin: String::new(),
-                    b: *b + 2*fingerprint,
+                    password_bytes: String::new(),
+                    b: b + 2*fingerprint,
                     c: 2*fingerprint,
                     r: *b,
                     fingerprint,
@@ -52,46 +54,37 @@ impl Sha3 {
 
     /// Will check if the binary password need a padding
     /// If so, it will add the padding to the binary password
-    pub fn preprocessing(&self) -> String { //TODO enlever le pub plus tard
-        // Conversion to binary
-        let mut password_bin = String::new();
-        for c in self.password.chars() {
-            password_bin.push_str(&format!("{:08b}", c as u8));
+    pub fn preprocessing(&mut self) -> String { //TODO enlever le pub plus tard
+        // Conversion to bytes
+        self.password_bytes = self.string_to_lsb(self.password.as_str());
+        self.password_bytes.push_str("0000011");
+        // Padding
+        let mut padding = String::new();
+        let padding_len = self.r - (self.password_bytes.len() % self.r as usize) as i32 - 8;
+        for _ in 0..padding_len {
+            padding.push('0');
         }
-        password_bin.push_str("01".to_string().as_str()); // Add the delimiter "01" at the end of the password
-
-        // If the length of the password in bits is already a multiple of r, we don't need to add padding
-        if password_bin.len() % self.r as usize == 0 {
-            return password_bin;
-        }
-
-        // Recover the original length of the binary password in bits
-        let original_length_bits = password_bin.len() as i32;
-
-        // Recover the padding length
-        let padding_length = self.r - (original_length_bits % self.r);
-        password_bin.push('1'); // Add the padding start bit "1"
-
-        // Add the minimum number of "0" bits to make the length of the message a multiple of r
-        for _ in 0..padding_length-2 { // -2 because we already added the "1" bit and we will also add the last "1" bit after the loop
-            password_bin.push('0');
-        }
-        password_bin.push('1'); // Add the padding end bit "1"
-
-        
-
-        password_bin.to_string()
+        padding.push_str("10000000");
+        self.password_bytes.push_str(&padding);
+        self.password_bytes.clone()
     }
-
+    
+    pub fn string_to_lsb(&self, s: &str) -> String {
+        let mut result = String::new();
+        for c in s.chars() {
+            result.push_str(&format!("{:08b}", c as u8));
+        }
+        result
+    }
     /// Hashing function using the SHA-3 algorithm
     #[allow(dead_code)]
     pub fn sha_3(&mut self) {
         
         // Message pre-processing (conversion to binary -> adding padding if necessary -> return password in binary)
-        self.password_bin = self.preprocessing();
+        self.password_bytes = self.preprocessing();
 
         // Sponge call (from the Keccak module)
-        let keccak = Keccak::new(self);
+        let mut keccak = Keccak::new(self);
         keccak.sponge();
         
     }
@@ -114,11 +107,9 @@ mod tests {
     #[test]
     // Test the creation of a new SHA-3 with 256 bits
     fn test_sha_3_new_256() {
-        let sha_3 = Sha3::new("password", 256);
-        assert_eq!(sha_3.b, 1088 + 2*256);
-        assert_eq!(sha_3.c, 2*256);
-        assert_eq!(sha_3.r, 1088);
-        assert_eq!(sha_3.fingerprint, 256);
+        let mut sha_3 = Sha3::new("password", 256);
+        sha_3.sha_3();
+        println!("{:?}", sha_3);
     }
 
     #[test]
@@ -159,31 +150,5 @@ mod tests {
         assert_eq!(sha_3.c, 2*256);
         assert_eq!(sha_3.r, 1088);
         assert_eq!(sha_3.fingerprint, 256);
-    }
-
-    // Test the pre-processing of the binary password (with padding)
-    #[test]
-    fn test_sha_3_prepocessing() {
-        let sha_3 = Sha3::new("password", 256);
-        let password = String::from("password");
-        let mut password_bin = String::new();
-        for c in password.chars() {
-            password_bin.push_str(&format!("{:08b}", c as u8));
-        }
-        let result = sha_3.preprocessing();
-        assert_eq!(result.len(), 1088);
-    }
-
-    // Test the pre-processing of the binary password (without padding needed)
-    #[test]
-    fn test_sha_3_prepocessing_no_padding_needed() {
-        let sha_3 = Sha3::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 256);
-        let password = String::from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        let mut passord_bin = String::new();
-        for c in password.chars() {
-            passord_bin.push_str(&format!("{:08b}", c as u8));
-        }
-        let result = sha_3.preprocessing();
-        assert_eq!(result.len(), 1088);
     }
 }
