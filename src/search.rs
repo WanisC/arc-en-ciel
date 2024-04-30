@@ -8,13 +8,14 @@ use std::fs::OpenOptions;
 use crate::hashage::sha3_hash;
 use crate::reduction::reduction;
 use crate::hash::Hash;
+use crate::sha3::hash_password;
 use std::time::Instant;
 
-pub fn search_main(path: PathBuf, _use_mem: bool, chain_length: u16, hash: Option<String>, hashs_path: Option<PathBuf>, password_length: usize) {
+pub fn search_main(path: PathBuf, chain_length: u16, hash: Option<String>, hashs_path: Option<PathBuf>, password_length: usize) {
     println!("get hash");
     let hashs = get_hashs(hash, hashs_path);
     println!("generation reduction");
-    let passwords_to_search = Arc::new(generation_reduction(&hashs, chain_length, password_length));
+    let passwords_to_search: Arc<HashMap<Hash, Vec<(String, u16)>>> = Arc::new(generation_reduction(&hashs, chain_length, password_length));
     println!("search chains");
     let start = Instant::now();
     let hash_founded = search_chains(path, passwords_to_search, password_length);
@@ -62,7 +63,7 @@ fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16, password_length: u
             let mut password: String;
             for offset in (2..=length).rev() {
                 password = reduction(&hash_to_red, chain_length - offset, password_length);
-                hash_to_red = sha3_hash(&password, Some(256)).hash;
+                hash_to_red = hash_password(&password);
             }
             password = reduction(&hash_to_red, chain_length - 1, password_length);
             reducted_passwords_local.push((password.clone(), chain_length - length));
@@ -137,7 +138,11 @@ fn test_reduction(reduc: String, hash: Hash, offset: u32, password_length: usize
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::*;
+    use rand::Rng;
+    use crate::password::Password;
 
     #[test]
     fn test_generation_reduction() {
@@ -151,12 +156,38 @@ mod tests {
 
     #[test]
     fn test_search_main() {
-        let path = PathBuf::from("G:/");
-        let password_length = 4;
+        let path = PathBuf::from("./output/");
+        let password_length = 5;
         let use_mem = false;
         let chain_length = 100;
         let hash = None;
         let hashs_path = Some(PathBuf::from("./hashs.txt"));
-        search_main(path, use_mem, chain_length, hash, hashs_path, password_length);
+        search_main(path, chain_length, hash, hashs_path, password_length);
+    }
+    
+    #[test]
+    fn test_reduction() {
+        // genere n hash de mot de passe de l caractères
+        let l = 4;
+        let n = 100;
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open("hashs.txt")
+            .unwrap();
+
+        for _ in 0..n-1 {
+            let password = Password::from_b64(vec![0; l].iter().map(|_| rand::thread_rng().gen_range(0..=63) as u64).collect::<Vec<u64>>());
+            let hash = sha3_hash(&password.password, Some(256));
+            file.write_all(format!("{:?}\n", hash).as_bytes()).unwrap();
+            println!("{:?} - {:?}", password.password, hash);
+        }
+        let password = Password::from_b64(vec![0; l].iter().map(|_| rand::thread_rng().gen_range(0..=63) as u64).collect::<Vec<u64>>());
+        let hash = sha3_hash(&password.password, Some(256));
+        file.write_all(format!("{:?}", hash).as_bytes()).unwrap();
+
+        file.sync_all().unwrap();
+        file.flush().unwrap();
     }
 }
