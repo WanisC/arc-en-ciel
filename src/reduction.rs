@@ -1,9 +1,9 @@
-pub fn reduction(hash: &Vec<u8>, offset: u16) -> String {
+pub fn reduction(hash: &Vec<u8>, offset: u16, password_length: usize) -> String {
     let mut password: Vec<u8> = Vec::new();
 
     let j = offset / 64;
     let offset = offset % 64;
-    for i in 0..7 {
+    for i in 0..(password_length as u16) {
         password.push(((hash[((i + j) % 32) as usize] as u16 + offset) % 64) as u8);
     }
 
@@ -31,6 +31,6 @@ mod tests {
         hasher.update("m0000Qa");
         let hash = hasher.finalize().to_vec();
         
-        println!("{:?}", reduction(&hash, 0));
+        println!("{:?}", reduction(&hash, 0, 7));
     }
 }

@@ -1,6 +1,6 @@
 use core::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Hash {
     pub hash: Vec<u8>,
 }
