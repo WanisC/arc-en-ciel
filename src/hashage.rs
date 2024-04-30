@@ -1,9 +1,7 @@
 //! Hashing module
 
 use std::collections::HashMap;
-use crate::keccak::Keccak;
-use byteorder::{ByteOrder, LittleEndian};
-use clap::builder::Str;
+use crate::{hash::Hash, keccak::Keccak};
 
 /// SHA-3 struct
 #[derive(Debug)]
@@ -78,16 +76,24 @@ impl Sha3 {
     }
     /// Hashing function using the SHA-3 algorithm
     #[allow(dead_code)]
-    pub fn sha_3(&mut self) {
-        
+    pub fn sha_3(&mut self) -> String {
         // Message pre-processing (conversion to binary -> adding padding if necessary -> return password in binary)
         self.password_bytes = self.preprocessing();
 
         // Sponge call (from the Keccak module)
-        let mut keccak = Keccak::new(self);
+        let mut keccak: Keccak = Keccak::new(self);
         keccak.sponge();
-        
+        keccak.state_to_strings()
     }
+}
+
+pub fn sha3_hash(password: &str, fingerprint: Option<i32>) -> Hash {
+    let mut sha_3 = match fingerprint {
+        Some(f) => Sha3::new(password, f),
+        None => Sha3::new(password, 256),
+    };
+    Hash::from(sha_3.sha_3())
+
 }
 
 #[cfg(test)]
@@ -108,8 +114,14 @@ mod tests {
     // Test the creation of a new SHA-3 with 256 bits
     fn test_sha_3_new_256() {
         let mut sha_3 = Sha3::new("password", 256);
-        sha_3.sha_3();
-        println!("{:?}", sha_3);
+        let res = sha_3.sha_3();
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_sha3() {
+        let res = sha3_hash("password", None);
+        println!("{:?}", res);
     }
 
     #[test]

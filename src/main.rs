@@ -1,8 +1,9 @@
 mod password;
 mod reduction;
 mod hash;
-mod sha3;
+mod hashage;
 mod generation;
+mod keccak;
 use generation::generation_main;
 mod search;
 use search::search_main;
@@ -74,7 +75,9 @@ enum Commands {
     
         #[clap(long, short = 'p')]
         hashs_path: Option<PathBuf>,
-    
+        
+        #[clap(long, short = 'l')]
+        password_length: usize,
     },
 }
 fn main() {
@@ -87,5 +90,20 @@ fn main() {
         Commands::Search { path, use_mem, chain_length, hash, hashs_path, password_length} => {
             search_main(path, use_mem, chain_length, hash, hashs_path, password_length);
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generation_main() {
+        generation_main(Some(PathBuf::from("./output/")), true, 100, 7);
+    }
+
+    #[test]
+    fn test_search_main() {
+        search_main(PathBuf::from("./output/"), true, 100, None, Some(PathBuf::from("./hashs.txt")), 5);
     }
 }

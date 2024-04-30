@@ -5,8 +5,8 @@ use rayon::prelude::*;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::fs::OpenOptions;
+use crate::hashage::sha3_hash;
 use crate::reduction::reduction;
-use crate::sha3::hash_password;
 use crate::hash::Hash;
 use std::time::Instant;
 
@@ -62,7 +62,7 @@ fn generation_reduction(hashs: &Vec<Hash>, chain_length: u16, password_length: u
             let mut password: String;
             for offset in (2..=length).rev() {
                 password = reduction(&hash_to_red, chain_length - offset, password_length);
-                hash_to_red = hash_password(&password);
+                hash_to_red = sha3_hash(&password, Some(256)).hash;
             }
             password = reduction(&hash_to_red, chain_length - 1, password_length);
             reducted_passwords_local.push((password.clone(), chain_length - length));
@@ -85,11 +85,11 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
         .open(path.clone() + format!("test_{}.txt", t).as_str())
         .unwrap();
 
-        let c = (2 * password_length + 1) * 100000; 
+        let c = (2 * password_length + 1) * 100000;
 
         let mut buf = vec![0; c];
         let mut offset = 0;
-        while let Ok(_) = file.seek_read(&mut buf, offset) {
+        while file.seek_read(&mut buf, offset).unwrap() != 0 {
             let contents = String::from_utf8(buf.to_vec()).unwrap();
             let mut passwords = contents.split("\n").collect::<Vec<&str>>();
             passwords.pop();
@@ -115,7 +115,7 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
                     }
                 }
             });
-            offset += 11 * 50000;
+            offset += c as u64;
         }
 
 
@@ -126,10 +126,10 @@ fn search_chains(path: PathBuf, passwords_to_search: Arc<HashMap<Hash, Vec<(Stri
 fn test_reduction(reduc: String, hash: Hash, offset: u32, password_length: usize) -> Option<String> {
     let mut reduc = reduc.clone();
     for i in 0..offset {
-        let hash_str = hash_password(&reduc);
+        let hash_str: Vec<u8> = sha3_hash(&reduc, Some(256)).hash;
         reduc = reduction(&hash_str, i as u16, password_length);
     }
-    if hash_password(&reduc) == hash.hash {
+    if sha3_hash(&reduc, Some(256)) == hash {
         return Some(reduc);
     }
     None

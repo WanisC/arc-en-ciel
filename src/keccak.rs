@@ -54,7 +54,7 @@ impl Keccak {
     }
 
     /// Convert the state array into a string
-    fn state_to_strings(&self) -> String {
+    pub fn state_to_strings(&self) -> String {
         let nlanes = self.r / self.f;
         let mut output = String::new();
         for i in 0..nlanes {
