@@ -44,6 +44,14 @@ impl Keccak {
         (a >> (64 - (n % 64))) + (a << (n % 64)) 
     }
     
+    fn zfill(s: &str, width: usize) -> String {
+        if width <= s.len() {
+            return s.to_string();
+        }
+        let padding = width - s.len();
+        let zeros: String = std::iter::repeat('0').take(padding).collect();
+        format!("{}{}", zeros, s)
+    }
 
     /// Convert the state array into a string
     fn state_to_strings(&self) -> String {
@@ -52,7 +60,7 @@ impl Keccak {
         for i in 0..nlanes {
             let y = (i / 5) as usize;
             let x = (i - 5 * y as i32) as usize;
-            output += format!("{:08x}", self.state[x][y].swap_bytes()).as_str();
+            output += Keccak::zfill(format!("{:08x}", self.state[x][y].swap_bytes()).as_str(), 16).as_str();
             
         }
         output
@@ -163,11 +171,11 @@ mod tests {
     #[test]
     // Test of all the routines together we assume that n = 24
     fn test_sha_3_keccak() {
-        let mut sha3 = Sha3::new("password", 256);
+        let mut sha3 = Sha3::new("****", 256);
         sha3.password_bytes = sha3.preprocessing();
         let mut keccak = Keccak::new(&sha3);
         keccak.sponge();
         let res = keccak.state_to_strings();
-        assert_eq!("c0067d4af4e87f00dbac63b6156828237059172d1bbeac67427345d6a9fda484", res);
+        assert_eq!("9c75caf0e14b30ac6b50c5d2f464d3690a6c72890228dd4994b6dabaf261a2ad", res);
     }
 }
