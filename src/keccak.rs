@@ -55,7 +55,7 @@ impl Keccak {
 
     /// Convert the state array into a string
     fn state_to_strings(&self) -> String {
-        let nlanes = self.r / 256;
+        let nlanes = self.r / self.f;
         let mut output = String::new();
         for i in 0..nlanes {
             let y = (i / 5) as usize;
@@ -63,6 +63,7 @@ impl Keccak {
             output += Keccak::zfill(format!("{:08x}", self.state[x][y].swap_bytes()).as_str(), 16).as_str();
             
         }
+        output.truncate(self.f as usize / 4);
         output
     }
 
