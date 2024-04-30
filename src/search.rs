@@ -158,7 +158,6 @@ mod tests {
     fn test_search_main() {
         let path = PathBuf::from("./output/");
         let password_length = 5;
-        let use_mem = false;
         let chain_length = 100;
         let hash = None;
         let hashs_path = Some(PathBuf::from("./hashs.txt"));
