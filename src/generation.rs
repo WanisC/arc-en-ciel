@@ -106,7 +106,7 @@ fn generation(stop_me: &Arc<AtomicBool>, i: u64, start: Password, chain_length: 
 
     // Create the first password
     let mut password = start;
-    let offset = (chain_length as f32 * 0.9) as u64 ;
+    let offset = (chain_length as f32 * 0.7) as u64 ;
     // Generate the passwords while the stop_me flag is not set and the password is not "?"
     while !stop_me.load(std::sync::atomic::Ordering::Relaxed) && password.password != "?" {
         let mut password_tmp = password.password.clone();

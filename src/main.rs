@@ -53,20 +53,11 @@ enum Commands {
         #[clap(long, short = 'l', default_value = "7")]
         password_length: usize,
     },
-
+    /// Search for a password in the rainbow table
     Search {
         #[clap(default_value = "./output/")]
         // Path for the input folder, default is ./output/
         path: PathBuf,
-
-        #[clap(long, short = 'm', default_value = "true")]
-        /// Use memory file
-        /// If the memory file exists, use it to generate the rainbow table
-        /// from the last password in the memory file
-        /// If the memory file does not exist, generate the rainbow table
-        /// and store the last password if the program is stopped
-        /// Default is true
-        use_mem: bool,
 
         #[clap(long, short = 'c', default_value = "100")]
         chain_length: u16,
@@ -88,8 +79,8 @@ fn main() {
         Commands::Generation { path, use_mem, chain_length, password_length } => {
             generation_main(path, use_mem, chain_length, password_length);
         },
-        Commands::Search { path, use_mem, chain_length, hash, hashs_path, password_length} => {
-            search_main(path, use_mem, chain_length, hash, hashs_path, password_length);
+        Commands::Search { path, chain_length, hash, hashs_path, password_length} => {
+            search_main(path, chain_length, hash, hashs_path, password_length);
         },
     }
 }
@@ -105,6 +96,6 @@ mod tests {
 
     #[test]
     fn test_search_main() {
-        search_main(PathBuf::from("./output/"), true, 100, None, Some(PathBuf::from("./hashs.txt")), 5);
+        search_main(PathBuf::from("./output/"), 100, None, Some(PathBuf::from("./hashs.txt")), 5);
     }
 }

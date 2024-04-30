@@ -93,7 +93,7 @@ impl Password {
         ).collect::<Vec<u64>>()
     }
 
-    fn from_b64(b64: Vec<u64>) -> Password {
+    pub fn from_b64(b64: Vec<u64>) -> Password {
         let password = b64.into_par_iter().map(|c| 
             match c {
                 0..=9 => c + 48,
