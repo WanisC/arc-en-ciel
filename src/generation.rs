@@ -1,3 +1,4 @@
+//! Generate the passwords while the stop_me flag is not set and the password is not "?"
 
 use rayon::prelude::*;
 use std::fs::OpenOptions;
@@ -15,6 +16,16 @@ use crate::sha3::hash_password;
 const CHAIN_LENGTH_MIN : u16 = 1;
 const CHAIN_LENGTH_MAX : u16 = 2048;
 
+/// Generate the rainbow table (main function).
+/// # Arguments
+/// * `path` - The path to the file containing the passwords
+/// * `use_mem` - Use memory file
+/// * `chain_length` - The length of the chain
+/// * `password_length` - The length of the password
+/// # Note
+/// If the memory file exists, use it to generate the rainbow table from the last password in the memory file.
+/// If the memory file does not exist, generate the rainbow table and store the last password if the program is stopped.
+/// Chain length must be between 1 and 2048.
 pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_length: u16, password_length: usize) {
     let path = path.unwrap().to_str().unwrap().to_string();
     let thread = num_cpus::get() as u64;
@@ -63,6 +74,7 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
         .unwrap()
     );
     
+    // Generate the rainbow table
     (0..thread).into_par_iter().for_each(|i: u64| {
         let password = generation(&stop_me, i, passwords[i as usize].clone(), chain_length, path.clone(), password_length);
         mem_file.lock().unwrap().write_all(format!("{}\n", password.password).as_bytes()).unwrap();
@@ -74,6 +86,16 @@ pub fn generation_main(path: Option<std::path::PathBuf>, use_mem: bool, chain_le
     mem::drop(mem_file);
 }
 
+/// Generate the rainbow table (sub function).
+/// # Arguments
+/// * `stop_me` - The flag to stop the program
+/// * `i` - The thread number
+/// * `start` - The first password
+/// * `chain_length` - The length of the chain
+/// * `path` - The path to the file containing the passwords
+/// * `password_length` - The length of the password
+/// # Returns
+/// The last password.
 fn generation(stop_me: &Arc<AtomicBool>, i: u64, start: Password, chain_length: u16, path: String, password_length: usize ) -> Password {
     // Open a file in in append mode
     let mut file = OpenOptions::new()

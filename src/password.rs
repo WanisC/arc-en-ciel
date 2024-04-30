@@ -1,12 +1,22 @@
+//! Implements traits and methods for a password type.
+
 use rayon::prelude::*;
 use std::ops::{Add, Sub};
 
+/// The password type.
+/// # Fields
+/// * `password` - The password
+/// * `length` - The length of the password
+/// # Note
+/// The password is stored as a string.
+/// The length is stored as an usize.
 #[derive(Clone, Debug)]
 pub struct Password {
     pub password: String,
     length: usize,
 }
 
+/// Add an offset to the password.
 impl Add<u64> for Password {
     type Output = Password;
 
@@ -32,6 +42,7 @@ impl Add<u64> for Password {
     }
 }
 
+/// Subtract an offset to the password.
 impl Sub<u64> for Password {
     type Output = Password;
 
@@ -53,12 +64,14 @@ impl Sub<u64> for Password {
     }
 }
 
+/// Compare two passwords.
 impl PartialEq for Password {
     fn eq(&self, other: &Password) -> bool {
         self.password == other.password
     }
 }
 
+/// Compare two passwords.
 impl PartialOrd for Password {
     fn partial_cmp(&self, other: &Password) -> Option<std::cmp::Ordering> {
         let password = self.to_b64().iter().fold(0, |acc, x| acc * 64 + x);
