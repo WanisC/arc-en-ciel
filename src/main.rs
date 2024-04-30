@@ -53,7 +53,7 @@ enum Commands {
         #[clap(long, short = 'l', default_value = "7")]
         password_length: usize,
     },
-
+    /// Search for a password in the rainbow table
     Search {
         #[clap(default_value = "./output/")]
         // Path for the input folder, default is ./output/
