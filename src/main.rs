@@ -1,25 +1,29 @@
 //! This is a program that generates a rainbow table and searches for a password in the rainbow table.
 //! # To use it:
+//! ```rust
 //! cargo run -- generation
+//! ```
 //! 
+//! ```rust
 //! cargo run -- search --hash 2a4c83e680475c86a7b6ccb40a7b113e9a5da06af47852b72fbf1a84614dcb69 -l 4
+//! ```
 //! 
 //! *`Remark:` Note that there are two - between run and the command.*
 //! 
 //! # Some options are available for :
-//! Generation command:
+//! *Generation command:*
 //! 
-//! -m: Use memory file
+//! -m: Use memory file.
 //! 
-//! -c: Chain length
+//! -c: Chain length.
 //! 
-//! -l: Password length
+//! -l: Password length.
 //! 
-//! Search command (have the same options as the generation command and the following options):
+//! *Search command (have the same options as the generation command and the following options):*
 //! 
-//! -hash: Hash to search
+//! -hash: Hash to search.
 //! 
-//! -hashs_path: Path to the file containing the hashs to search
+//! -hashs_path: Path to the file containing the hashs to search.
 //! 
 //! # Examples
 //! ```rust
